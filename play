@@ -1,0 +1,271 @@
+import java.util.Random;
+import java.util.Scanner;
+
+public class Main {
+
+    public static void main(String[] args) {
+        // --- Эмодзи ---
+        String person = "\uD83E\uDDD9";
+        String monster = "\uD83D\uDC7D";
+        String castle = "\uD83C\uDFF0";
+        String wanderer = "\uD83E\uDDDD"; // Эльф
+
+        // --- Настройки ---
+        int personLive = 3;
+        int sizeBoard = 5;
+        int personX = 0;
+        int personY = sizeBoard - 1;
+        int step = 0;
+
+        Random random = new Random();
+        int castleY = 0;
+        int castleX = random.nextInt(sizeBoard);
+        String[][] board = new String[sizeBoard][sizeBoard];
+
+        // --- Заполнение доски ---
+        for (int y = 0; y < sizeBoard; y++) {
+            for (int x = 0; x < sizeBoard; x++) {
+                board[y][x] = "  ";
+            }
+        }
+
+        // --- Расстановка монстров ---
+        int countMonster = sizeBoard * sizeBoard - sizeBoard - 1;
+        for (int i = 0; i < countMonster; i++) {
+            int mx, my;
+            do {
+                mx = random.nextInt(sizeBoard);
+                my = random.nextInt(sizeBoard);
+            } while (!board[my][mx].equals("  ")
+                    || (mx == personX && my == personY)
+                    || (mx == castleX && my == castleY));
+            board[my][mx] = monster;
+        }
+
+        // --- Расстановка Эльфа ---
+        int wandererX, wandererY;
+        do {
+            wandererX = random.nextInt(sizeBoard);
+            wandererY = random.nextInt(sizeBoard);
+        } while (!board[wandererY][wandererX].equals("  ")
+                || (wandererX == personX && wandererY == personY)
+                || (wandererX == castleX && wandererY == castleY));
+        board[wandererY][wandererX] = wanderer;
+
+        board[castleY][castleX] = castle;
+
+        // --- Начало игры ---
+        System.out.println("Привет! Ты готов начать играть в игру? (Введи 1, если да. 0, если нет)");
+        Scanner scanner = new Scanner(System.in);
+        String answer = scanner.nextLine();
+
+        if (answer.equalsIgnoreCase("1")) {
+            System.out.println("Начинаем играть");
+            System.out.println("Выбери сложность игры(от 1 до 5):");
+            int difficultGame = scanner.nextInt();
+            System.out.println("Выбранная сложность:\t" + difficultGame);
+
+            while (true) {
+                // Очищаем старую позицию
+                if (board[personY][personX].equals("  ") || board[personY][personX].equals(monster) || board[personY][personX].equals(wanderer)) {
+                    board[personY][personX] = "  ";
+                }
+                board[personY][personX] = person;
+                outputBoard(board, personLive);
+
+                System.out.println("Введите координаты следующего хода "
+                        + "(перемещение возможно только по вертикали или горизонтали на одну клетку)"
+                        + "\nКоординаты клетки ('x''y') — (x: " + (personX + 1) + ", y: " + (personY + 1) + ")");
+
+                int x = scanner.nextInt();
+                int y = scanner.nextInt();
+                System.out.println("\nКоординаты клетки: " + "x: " + x + ", " + "y: " + y);
+
+                int targetX = x - 1;
+                int targetY = y - 1;
+
+                // --- Проверка хода ---
+                if (targetX < 0 || targetX >= sizeBoard || targetY < 0 || targetY >= sizeBoard) {
+                    System.out.println("Некорректный ход: выход за границы поля.");
+                    continue;
+                }
+
+                if (targetX == personX && targetY == personY) {
+                    System.out.println("Некорректный ход: вы не сдвинулись с места.");
+                } else if ((Math.abs(targetX - personX) == 1 && targetY == personY) ||
+                        (Math.abs(targetY - personY) == 1 && targetX == personX)) {
+
+                    if (board[targetY][targetX].equals("  ")) {
+                        board[personY][personX] = "  ";
+                        personX = targetX;
+                        personY = targetY;
+                        step++;
+                        System.out.println("Ход корректный; новые координаты: "
+                                + (personX + 1) + ", " + (personY + 1)
+                                + "\nХод номер: " + step);
+                    } else if (board[targetY][targetX].equals(castle)) {
+                        System.out.println("Вы прошли игру!");
+                        break;
+                    } else if (board[targetY][targetX].equals(wanderer)) {
+                        // --- Встреча с Эльфом ---
+                        System.out.println("Вы встретили Эльфа-Странника. Он задаст вопрос:");
+                        int[] playerPos = {personX, personY};
+
+                        if (taskWanderer(scanner, playerPos)) {
+                            board[personY][personX] = "  ";
+                            personX = targetX;
+                            personY = targetY;
+                            step++;
+//                            personLive++;
+                            // Награда: снижение сложности до 1 (Вы получили +1 жизнь. У вас " + personLive + " жизней.)
+                            difficultGame = 1;
+                            System.out.println("Эльф кивнул!Сложность снижена до 1.");
+                        } else {
+                            System.out.println("Эльф покачал головой и телепортировал вас в начало!");
+                            board[personY][personX] = "  ";
+                            personX = playerPos[0];
+                            personY = playerPos[1];
+                            step++;
+                        }
+                    } else if (board[targetY][targetX].equals(monster)) {
+                        // --- Встреча с Монстром ---
+                        System.out.println("Выполните задание:");
+                        if (taskMonster(difficultGame, scanner)) {
+                            // Сложность здесь НЕ меняется (она зависит от выбора в начале)
+                            board[personY][personX] = "  ";
+                            personX = targetX;
+                            personY = targetY;
+                            step++;
+                            System.out.println("Вы победили монстра!");
+                        } else {
+                            personLive--;
+                        }
+                    }
+                } else {
+                    System.out.println("Некорректный ход: можно ходить только на 1 клетку по прямой.");
+                }
+
+                if (personLive <= 0) {
+                    break;
+                }
+            }
+
+            if (personLive <= 0) {
+                System.out.println("Закончились жизни. Итог: Игра проиграна.");
+            }
+        } else {
+            System.out.println("Жаль, приходи ещё!");
+        }
+        scanner.close();
+    }
+
+    // --- Отрисовка поля ---
+    static void outputBoard(String[][] board, int Live) {
+        int size = board.length;
+        System.out.println("Жизней: " + Live);
+        System.out.println("   Игровое поле:");
+
+        System.out.print("    ");
+        for (int x = 1; x <= size; x++) {
+            System.out.print(" " + x + " ");
+        }
+        System.out.println();
+
+        System.out.print("  ---");
+        for (int x = 0; x < size; x++) {
+            System.out.print("---");
+        }
+        System.out.println();
+
+        for (int y = 0; y < size; y++) {
+            System.out.print(" " + (y + 1) + " |");
+            for (int x = 0; x < size; x++) {
+                System.out.print(board[y][x] + "|");
+            }
+            System.out.println();
+            System.out.print("  ---");
+            for (int x = 0; x < size; x++) {
+                System.out.print("---");
+            }
+            System.out.println();
+        }
+    }
+
+    // --- Задание Эльфа (Вопрос с вариантами) ---
+    static boolean taskWanderer(Scanner scanner, int[] playerPos) {
+        System.out.println("Какой цветок в Древнем Египте являлся символом возрождения и солнца?");
+        System.out.println("1. Лотос");
+        System.out.println("2. Роза");
+        System.out.println("3. Тюльпан");
+
+        while (!scanner.hasNextInt()) {
+            System.out.println("Введите номер ответа (цифру):");
+            scanner.next();
+        }
+        int playerAnswer = scanner.nextInt();
+
+        if (playerAnswer == 1) {
+            return true;
+        } else {
+            // Телепортация на старт при ошибке
+            playerPos[0] = 0;
+            playerPos[1] = 4;
+            return false;
+        }
+    }
+
+    // --- Задание Монстра (Математика) ---
+    static boolean taskMonster(int difficultGame, Scanner scanner) {
+        Random random = new Random();
+        int trueAnswer = 0;
+
+        // Генерация примера (убран бесконечный цикл while(true))
+        if (difficultGame == 1) {
+            int a = random.nextInt(100);
+            int b = random.nextInt(100);
+            trueAnswer = a + b;
+            System.out.println("Реши пример: " + a + " + " + b + " = ?");
+        } else if (difficultGame == 2) {
+            int c = random.nextInt(100);
+            int d = random.nextInt(100);
+            if (c < d) { int temp = c; c = d; d = temp; }
+            trueAnswer = c - d;
+            System.out.println("Реши пример: " + c + " - " + d + " = ?");
+        } else if (difficultGame == 3) {
+            int x = 10 * (difficultGame - 1) + random.nextInt(10);
+            int y = 10 * (difficultGame - 1) + random.nextInt(10);
+            int z = 100 * (difficultGame - 1) + random.nextInt(100);
+            trueAnswer = x * y - z;
+            System.out.println("Реши пример: " + x + " * " + y + " - " + z + " = ?");
+        } else if (difficultGame == 4) {
+            int x = 10 * (difficultGame - 1) + random.nextInt(10);
+            int y = 10 * (difficultGame - 1) + random.nextInt(10);
+            if (y == 0) { y = 1; }
+            int z = 100 * (difficultGame - 1) + random.nextInt(100);
+            trueAnswer = x / y + z;
+            System.out.println("Реши пример: " + x + " / " + y + " + " + z + " = ?");
+        } else if (difficultGame == 5) {
+            int x = 10 * (difficultGame - 1) + random.nextInt(10);
+            int y = 10 * (difficultGame - 1) + random.nextInt(10);
+            int z = 10 * (difficultGame - 1) + random.nextInt(100);
+            if (z == 0) { z = 1; }
+            trueAnswer = (x * y) / z;
+            System.out.println("Реши пример: (" + x + " * " + y + ") / " + z + " = ?");
+        }
+
+        // Защита от ввода текста
+        while (!scanner.hasNextInt()) {
+            System.out.println("Это не число. Введите число:");
+            scanner.next();
+        }
+        int playerAnswer = scanner.nextInt();
+
+        if (playerAnswer == trueAnswer) {
+            System.out.println("Верно! Ты молодец!");
+            return true;
+        } else {
+            System.out.println("Ты проиграл эту битву! Правильный ответ: " + trueAnswer);
+            return false;
+        }
+    }
+}
